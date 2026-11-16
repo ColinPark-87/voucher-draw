@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>설명회 출석 체크</title>
+<style>
+:root{--blue:#004EA2;--blue-d:#002F65;--blue-50:#ECF3FB;--ink:#1A212E;--ink-2:#4A5363;--ink-3:#97A2B3;--line:#D6DEE9;--bg:#F3F6FA;--red:#C0392B;--ok:#0E6029;
+  --a0:#2A75CC;--a1:#E0716D;--a2:#C9A227}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--blue-d);color:#fff;padding:12px 16px 10px}
+header h1{margin:0;font-size:19px;font-weight:800}
+#st{margin-top:4px;font-size:13px;opacity:.85;min-height:16px}
+#st.bad{color:#FFC9C2;opacity:1}
+main{padding:12px 16px 40px;max-width:1000px;margin:0 auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.card h2{margin:0 0 10px;font-size:17px}
+.card p{margin:6px 0 0;font-size:14px;line-height:1.6;color:var(--ink-2)}
+label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin-top:10px}
+input[type=text],input[type=password],input[type=search]{width:100%;height:46px;border:1px solid #C4CFDE;border-radius:10px;padding:0 12px;font-size:16px;background:#fff;color:var(--ink)}
+.btn{height:46px;padding:0 18px;border-radius:10px;border:1px solid #C4CFDE;background:#fff;color:var(--ink);font-size:15px;font-weight:700}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn:disabled{opacity:.5}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.tab{flex:none;min-width:92px;height:54px;border-radius:10px;border:1px solid #C4CFDE;background:#fff;color:var(--ink-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:700}
+.tab b{font-size:16px;color:var(--ink);display:flex;align-items:center;gap:5px}
+.tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.tab.on b{color:#fff}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.a0{background:var(--a0)}.a1{background:var(--a1)}.a2{background:var(--a2)}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.bar .sum{font-size:17px;font-weight:800}
+.bar .sum small{font-size:14px;color:var(--ink-2);font-weight:600;margin-left:4px}
+.bar .btn{margin-left:auto}
+.note{font-size:14px;color:var(--ink-2);margin:0 0 10px;line-height:1.5}
+.note b{color:var(--red)}
+.lock{background:#FFF4D6;border:1px solid #E8CF7A;color:#6B5200;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:700;margin-bottom:10px}
+.groups{display:grid;grid-template-columns:1fr;gap:4px 18px}
+@media (min-width:720px){.groups{grid-template-columns:1fr 1fr}}
+.g h3{margin:12px 0 6px;font-size:15px;display:flex;gap:8px;align-items:baseline}
+.g h3 small{font-size:13px;color:var(--ink-3);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px}
+.pp{height:50px;min-width:0;border-radius:10px;border:1px solid #C4CFDE;background:#fff;color:var(--ink);display:flex;align-items:center;gap:8px;padding:0 10px 0 8px;font-size:17px;font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;touch-action:manipulation}
+.pp i{flex:none;width:30px;height:30px;border-radius:7px;background:#2563EB;color:#fff;display:grid;place-items:center;font-style:normal;font-size:15px;font-weight:800}
+.pp em{font-style:normal;font-size:13px;color:var(--ink-3);font-weight:600;margin-left:auto}
+.pp.off{background:#F3F5F9;border-style:dashed;color:#A6B0C0;text-decoration:line-through}
+.pp.off i{background:#fff;color:var(--red);border:1px solid #E3B4B4}
+.pp:disabled{opacity:.7}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<header><h1 id="ttl">설명회 출석 체크</h1><div id="st"></div></header>
+<main>
+  <section class="card hide" id="login">
+    <h2>연결</h2>
+    <p>5층 진행자에게 받은 링크로 열면 자동으로 연결됩니다. 직접 넣으려면 저장소와 토큰을 입력하세요.</p>
+    <label>저장소</label><input type="text" id="repo" autocomplete="off" placeholder="아이디/저장소이름">
+    <label>토큰</label><input type="password" id="token" autocomplete="off" placeholder="github_pat_…">
+    <div style="margin-top:14px"><button class="btn pri" id="go">연결</button></div>
+  </section>
+
+  <section class="hide" id="app">
+    <div class="tabs" id="tabs"></div>
+    <div class="bar"><span class="sum" id="sum"></span><button class="btn" id="done"></button></div>
+    <div id="lockmsg" class="lock hide">5층에서 이 연령 추첨이 시작되었습니다. 지금 바꾸는 출석은 추첨에 반영되지 않습니다.</div>
+    <p class="note">처음엔 전원 참석(O)입니다. <b>안 오신 분만 눌러서 X</b>로 바꾸고, 다 끝나면 위의 <b style="color:var(--ok)">출석 확인 완료</b>를 눌러 주세요. 자동 저장됩니다.</p>
+    <input type="search" id="q" placeholder="이름 또는 번호 검색" autocomplete="off" style="margin-bottom:6px">
+    <div class="groups" id="groups"></div>
+    <div style="margin-top:28px;text-align:right"><button class="btn" id="logout">연결 끊기</button></div>
+  </section>
+</main>
+<script>
+(() => {
+'use strict';
+const CFG = {"campus": "중계캠퍼스", "ages": ["5세", "6세", "7세"], "sessions": [{"id": "s1118", "date": "2026-11-18", "label": "11월 18일 (수)"}, {"id": "s1120", "date": "2026-11-20", "label": "11월 20일 (금)"}, {"id": "s1123", "date": "2026-11-23", "label": "11월 23일 (월)"}], "dataRepo": "ColinPark-87/voucher-draw-data"};   // { campus, ages, sessions, dataRepo }
+const KEY = 'voucher-lottery-github';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtT = d => new Date(d).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+const SES = CFG.sessions, AG = CFG.ages, LK = (sid, a) => sid + ':' + a;
+
+let NET = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+// 진행자가 보낸 링크: …check.html#repo=…&t=… → 저장하고 주소창에서 지움
+{ const p = new URLSearchParams(location.hash.slice(1)); if (p.get('t')) { NET = { repo: p.get('repo') || CFG.dataRepo, token: p.get('t') }; history.replaceState(null, '', location.pathname); } }
+if (!NET.repo) NET.repo = CFG.dataRepo;
+
+let roster = {}, absent = {}, done = {}, locked = {}, cur = null, q = '';
+const dirty = new Set(); let ver = 0, timer = 0;
+function st(msg, bad) { const e = $('#st'); e.textContent = msg; e.className = bad ? 'bad' : ''; }
+
+/* ---------- GitHub 파일 읽기·쓰기 (5층 화면과 같은 attendance.json 형식) ---------- */
+const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+const b64d = b => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
+async function gh(path, body) {
+  const r = await fetch(`https://api.github.com/repos/${NET.repo}${path}`, { method: body ? 'PUT' : 'GET', cache: 'no-store',
+    headers: { Authorization: 'Bearer ' + NET.token, Accept: 'application/vnd.github+json' }, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 404 && !body) return null;
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+async function ghRead(f) { const j = await gh('/contents/' + f); return j ? JSON.parse(b64d(j.content)) : null; }
+async function ghWrite(f, fn, msg) {   // 현재 내용을 받아 고쳐서 씀 — 5층과 동시에 써도 서로 지우지 않게
+  for (let i = 0; ; i++) {
+    const c = await gh('/contents/' + f);
+    try { await gh('/contents/' + f, { message: msg, content: b64e(JSON.stringify(fn(c ? JSON.parse(b64d(c.content)) : null), null, 1)), sha: c ? c.sha : undefined }); return; }
+    catch (e) { if (i > 2 || !/409|422/.test(e.message)) throw e; }
+  }
+}
+
+/* ---------- 명단 ---------- */
+// 한 줄에 두 명(쌍둥이)은 한 명씩: '여-6' → '여-6-1', '여-6-2' (5층 화면과 같은 규칙)
+const split = raw => Object.fromEntries(Object.entries(raw || {}).map(([sid, ages]) => [sid, Object.fromEntries(Object.entries(ages).map(([a, l]) =>
+  [a, l.flatMap(([c, n]) => { const p = n.trim().split(/\s+/); return p.length > 1 ? p.map((x, i) => [c + '-' + (i + 1), x]) : [[c, n]]; })]))]));
+const listOf = (sid, a) => (roster[sid] || {})[a] || [];
+const units = () => SES.flatMap(s => AG.map((n, a) => ({ sid: s.id, a, label: s.label, n })).filter(u => listOf(u.sid, u.a).length));
+const sexOrder = c => ['남', '여'].indexOf(c.split('-')[0]) + 1 || 9;
+const num = c => c.split('-').slice(1).map(Number);
+const byCode = (x, y) => sexOrder(x[0]) - sexOrder(y[0]) || num(x[0])[0] - num(y[0])[0] || (num(x[0])[1] || 0) - (num(y[0])[1] || 0);
+
+/* ---------- 화면 ---------- */
+function render() {
+  const us = units(); if (!us.length) { $('#groups').innerHTML = '<p class="note">명단이 비어 있습니다.</p>'; return; }
+  if (!cur || !us.some(u => u.sid === cur.sid && u.a === cur.a)) {   // 기본: 오늘(또는 다음) 설명회의 첫 연령
+    const t = new Date(), today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    const s = SES.find(x => x.date >= today) || SES[SES.length - 1];
+    cur = us.find(u => u.sid === s.id) || us[0];
+  }
+  const k = LK(cur.sid, cur.a), list = listOf(cur.sid, cur.a), ab = new Set(absent[k] || []), lk = !!locked[k];
+  $('#tabs').innerHTML = us.map(u => `<button class="tab${u.sid === cur.sid && u.a === cur.a ? ' on' : ''}" data-sid="${u.sid}" data-a="${u.a}">${esc(u.label.replace(/(\d+)월 (\d+)일/, '$1/$2'))}<b><span class="dot a${u.a}"></span>${esc(u.n)}${done[LK(u.sid, u.a)] ? ' ✓' : ''}</b></button>`).join('');
+  $('#sum').innerHTML = `${esc(AG[cur.a])} 참석 ${list.length - ab.size}<small>/ ${list.length}명</small>`;
+  const d = $('#done'); d.textContent = done[k] ? `출석 확인 완료 ✓ ${fmtT(done[k])}` : '출석 확인 완료'; d.className = 'btn' + (done[k] ? ' done' : ' pri');
+  $('#lockmsg').classList.toggle('hide', !lk);
+  const groups = [...new Set(list.map(x => x[0].split('-')[0]))].sort((x, y) => (sexOrder(x + '-')) - (sexOrder(y + '-')));
+  $('#groups').innerHTML = groups.map(g => {
+    const l = list.filter(x => x[0].split('-')[0] === g).sort(byCode);
+    return `<div class="g"><h3>${esc(g)}<small>${l.filter(x => !ab.has(x[0])).length} / ${l.length}명</small></h3><div class="grid">${l.map(([c, n]) => `<button class="pp${ab.has(c) ? ' off' : ''}" data-c="${esc(c)}" data-s="${esc(n)} ${esc(c)}"${lk ? ' disabled' : ''}><i>${ab.has(c) ? 'X' : 'O'}</i>${esc(n)}<em>${esc(c)}</em></button>`).join('')}</div></div>`;
+  }).join('');
+  filter();
+}
+function filter() { document.querySelectorAll('.pp').forEach(b => b.classList.toggle('hide', !!q && !b.dataset.s.includes(q))); }
+
+/* ---------- 저장·받기 ---------- */
+function changed(k) { dirty.add(k); ver++; st('저장 대기…'); clearTimeout(timer); timer = setTimeout(push, 700); }
+async function push() {
+  if (!dirty.size) return;
+  const v = ver, keys = [...dirty], mineA = Object.fromEntries(keys.map(k => [k, absent[k]])), mineD = Object.fromEntries(keys.map(k => [k, done[k]]));
+  try {
+    st('저장 중…');
+    await ghWrite('attendance.json', c => {
+      const a = (c && c.absent) || {}, d = (c && c.done) || {};
+      keys.forEach(k => { if (mineA[k] && mineA[k].length) a[k] = mineA[k]; else delete a[k]; if (mineD[k]) d[k] = mineD[k]; else delete d[k]; });
+      return { ...(c || {}), saved: new Date().toISOString(), absent: a, done: d };   // locked(5층 추첨 시작 표시)는 그대로 둠
+    }, '출석 체크 (6층)');
+    if (ver === v) { dirty.clear(); st('저장됨 ' + fmtT(new Date())); } else { clearTimeout(timer); timer = setTimeout(push, 300); }
+  } catch (e) { st(`저장 실패 (${e.message}) — 5초 뒤 다시 시도합니다`, true); clearTimeout(timer); timer = setTimeout(push, 5000); }
+}
+async function pull() {
+  try {
+    const d = await ghRead('attendance.json') || {};
+    locked = d.locked || {};
+    for (const k of new Set([...Object.keys(d.absent || {}), ...Object.keys(absent), ...Object.keys(d.done || {}), ...Object.keys(done)])) {
+      if (dirty.has(k)) continue;   // 이 폰에서 고치고 아직 못 올린 칸은 이 폰 것이 우선
+      if (d.absent && d.absent[k]) absent[k] = d.absent[k]; else delete absent[k];
+      if (d.done && d.done[k]) done[k] = d.done[k]; else delete done[k];
+    }
+    render();
+    if (!dirty.size) st('연결됨 · ' + fmtT(new Date()) + ' 확인');
+  } catch (e) { st(`불러오기 실패 (${e.message})`, true); }
+}
+
+async function connect() {
+  NET.repo = (NET.repo || '').trim(); NET.token = (NET.token || '').trim();
+  if (!NET.repo || !NET.token) { $('#login').classList.remove('hide'); $('#app').classList.add('hide'); $('#repo').value = NET.repo || ''; return; }
+  try {
+    st('연결 중…');
+    const info = await gh('');
+    if (!info) throw new Error('저장소 없음');
+    if (!info.private) throw new Error('공개 저장소라 연결하지 않습니다');
+    const raw = await ghRead('roster.json');
+    if (!raw) throw new Error('roster.json(명단) 없음');
+    roster = split(raw);
+    try { localStorage.setItem(KEY, JSON.stringify({ repo: NET.repo, token: NET.token })); } catch (e) {}
+    $('#login').classList.add('hide'); $('#app').classList.remove('hide');
+    await pull();
+  } catch (e) {
+    st(e.message === '401' ? '토큰이 맞지 않습니다 (401)' : `연결 실패 — ${e.message}`, true);
+    $('#login').classList.remove('hide'); $('#app').classList.add('hide'); $('#repo').value = NET.repo || '';
+  }
+}
+
+/* ---------- 조작 ---------- */
+$('#ttl').textContent = `${CFG.campus} 설명회 출석 체크`;
+$('#go').onclick = () => { NET = { repo: $('#repo').value, token: $('#token').value }; connect(); };
+$('#logout').onclick = () => { if (!confirm('이 기기의 연결 정보를 지울까요?')) return; try { localStorage.removeItem(KEY); } catch (e) {} NET = { repo: CFG.dataRepo }; roster = {}; connect(); };
+$('#q').addEventListener('input', e => { q = e.target.value.trim(); filter(); });
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; cur = { sid: b.dataset.sid, a: +b.dataset.a }; q = ''; $('#q').value = ''; render(); scrollTo(0, 0); });
+$('#groups').addEventListener('click', e => {
+  const b = e.target.closest('.pp'); if (!b || b.disabled) return;
+  const k = LK(cur.sid, cur.a), ab = new Set(absent[k] || []), c = b.dataset.c;
+  if (ab.has(c)) ab.delete(c); else ab.add(c);
+  absent[k] = listOf(cur.sid, cur.a).map(x => x[0]).filter(x => ab.has(x));
+  changed(k); render();
+});
+$('#done').onclick = () => { const k = LK(cur.sid, cur.a); if (done[k]) delete done[k]; else done[k] = new Date().toISOString(); changed(k); render(); };
+addEventListener('beforeunload', e => { if (dirty.size) e.preventDefault(); });
+setInterval(() => { if (roster && Object.keys(roster).length && !document.hidden) pull(); }, 10000);
+connect();
+})();
+</script>
+</body>
+</html>
