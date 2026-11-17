@@ -2402,7 +2402,7 @@ addEventListener('pointermove', pokeDock);
 /* ======================= 시작 ======================= */
 pokeDock();
 if (location.search.includes('selftest')) selfTest();
-if (REMOTE && netOn()) loadRoster();
+if (NET.token && !NET.ok) netConnect(); else if (REMOTE && netOn()) loadRoster();   // 6층 페이지가 저장한 연결 정보도 자동 확인
 (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { Machine.reset(ballsOf(S.pool)); renderAll(); });
 renderAll();
 })();

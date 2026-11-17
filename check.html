@@ -194,7 +194,7 @@ async function connect() {
     const raw = await ghRead('roster.json');
     if (!raw) throw new Error('roster.json(명단) 없음');
     roster = split(raw);
-    try { localStorage.setItem(KEY, JSON.stringify({ repo: NET.repo, token: NET.token })); } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify({ repo: NET.repo, token: NET.token, ok: true }))   // ok: 같은 PC의 5층 화면도 연결 유지; } catch (e) {}
     $('#login').classList.add('hide'); $('#app').classList.remove('hide');
     await pull();
   } catch (e) {
