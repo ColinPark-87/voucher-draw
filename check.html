@@ -47,8 +47,9 @@ input[type=text],input[type=password],input[type=search]{width:100%;height:46px;
 .pp{height:50px;min-width:0;border-radius:10px;border:1px solid #C4CFDE;background:#fff;color:var(--ink);display:flex;align-items:center;gap:8px;padding:0 10px 0 8px;font-size:17px;font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;touch-action:manipulation}
 .pp i{flex:none;width:30px;height:30px;border-radius:7px;background:#2563EB;color:#fff;display:grid;place-items:center;font-style:normal;font-size:15px;font-weight:800}
 .pp em{font-style:normal;font-size:13px;color:var(--ink-3);font-weight:600;margin-left:auto}
-.pp.off{background:#F3F5F9;border-style:dashed;color:#A6B0C0;text-decoration:line-through}
-.pp.off i{background:#fff;color:var(--red);border:1px solid #E3B4B4}
+.pp{background:#EEF4FF;border-color:#2563EB}   /* O = 참석 */
+.pp.off{background:#fff;border-color:#C4CFDE}   /* 빈칸 = 아직 체크 안 함 */
+.pp.off i{background:#fff;border:1.5px solid #B6C2D3}
 .pp:disabled{opacity:.7}
 .hide{display:none!important}
 </style>
@@ -68,7 +69,7 @@ input[type=text],input[type=password],input[type=search]{width:100%;height:46px;
     <div class="tabs" id="tabs"></div>
     <div class="bar"><span class="sum" id="sum"></span><button class="btn" id="done"></button></div>
     <div id="lockmsg" class="lock hide">5층에서 이 연령 추첨이 시작되었습니다. 지금 바꾸는 출석은 추첨에 반영되지 않습니다.</div>
-    <p class="note">처음엔 전원 참석(O)입니다. <b>안 오신 분만 눌러서 X</b>로 바꾸고, 다 끝나면 위의 <b style="color:var(--ok)">출석 확인 완료</b>를 눌러 주세요. 자동 저장됩니다.</p>
+    <p class="note">처음엔 모두 빈칸입니다. <b style="color:var(--blue)">오신 분을 눌러서 O</b>로 표시하고, 다 끝나면 위의 <b style="color:var(--ok)">출석 확인 완료</b>를 눌러 주세요. 자동 저장됩니다.</p>
     <input type="search" id="q" placeholder="이름 또는 번호 검색" autocomplete="off" style="margin-bottom:6px">
     <div class="groups" id="groups"></div>
     <div style="margin-top:28px;text-align:right"><button class="btn" id="logout">연결 끊기</button></div>
@@ -89,19 +90,25 @@ let NET = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } c
 { const p = new URLSearchParams(location.hash.slice(1)); if (p.get('t')) { NET = { repo: p.get('repo') || CFG.dataRepo, token: p.get('t') }; history.replaceState(null, '', location.pathname); } }
 if (!NET.repo) NET.repo = CFG.dataRepo;
 
-let roster = {}, absent = {}, done = {}, locked = {}, cur = null, q = '';
+let roster = {}, present = {}, done = {}, locked = {}, cur = null, q = '';
 const dirty = new Set(); let ver = 0, timer = 0;
 function st(msg, bad) { const e = $('#st'); e.textContent = msg; e.className = bad ? 'bad' : ''; }
 
 /* ---------- GitHub 파일 읽기·쓰기 (5층 화면과 같은 attendance.json 형식) ---------- */
 const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 const b64d = b => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
+// GET은 ETag 조건부 요청 — 안 바뀌었으면 304(요청 한도에 안 셈)라서 2초마다 확인해도 됨
+const etags = {};
 async function gh(path, body) {
-  const r = await fetch(`https://api.github.com/repos/${NET.repo}${path}`, { method: body ? 'PUT' : 'GET', cache: 'no-store',
-    headers: { Authorization: 'Bearer ' + NET.token, Accept: 'application/vnd.github+json' }, body: body ? JSON.stringify(body) : undefined });
+  const headers = { Authorization: 'Bearer ' + NET.token, Accept: 'application/vnd.github+json' }, c = !body && etags[path];
+  if (c) headers['If-None-Match'] = c.e;
+  const r = await fetch(`https://api.github.com/repos/${NET.repo}${path}`, { method: body ? 'PUT' : 'GET', cache: 'no-store', headers, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 304 && c) return c.j;
   if (r.status === 404 && !body) return null;
   if (!r.ok) throw new Error(r.status);
-  return r.json();
+  const j = await r.json(), e = r.headers.get('ETag');
+  if (!body && e) etags[path] = { e, j };
+  return j;
 }
 async function ghRead(f) { const j = await gh('/contents/' + f); return j ? JSON.parse(b64d(j.content)) : null; }
 async function ghWrite(f, fn, msg) {   // 현재 내용을 받아 고쳐서 씀 — 5층과 동시에 써도 서로 지우지 않게
@@ -130,47 +137,50 @@ function render() {
     const s = SES.find(x => x.date >= today) || SES[SES.length - 1];
     cur = us.find(u => u.sid === s.id) || us[0];
   }
-  const k = LK(cur.sid, cur.a), list = listOf(cur.sid, cur.a), ab = new Set(absent[k] || []), lk = !!locked[k];
+  const k = LK(cur.sid, cur.a), list = listOf(cur.sid, cur.a), pr = new Set(present[k] || []), lk = !!locked[k];
   $('#tabs').innerHTML = us.map(u => `<button class="tab${u.sid === cur.sid && u.a === cur.a ? ' on' : ''}" data-sid="${u.sid}" data-a="${u.a}">${esc(u.label.replace(/(\d+)월 (\d+)일/, '$1/$2'))}<b><span class="dot a${u.a}"></span>${esc(u.n)}${done[LK(u.sid, u.a)] ? ' ✓' : ''}</b></button>`).join('');
-  $('#sum').innerHTML = `${esc(AG[cur.a])} 참석 ${list.length - ab.size}<small>/ ${list.length}명</small>`;
+  $('#sum').innerHTML = `${esc(AG[cur.a])} 참석 ${list.filter(x => pr.has(x[0])).length}<small>/ ${list.length}명</small>`;
   const d = $('#done'); d.textContent = done[k] ? `출석 확인 완료 ✓ ${fmtT(done[k])}` : '출석 확인 완료'; d.className = 'btn' + (done[k] ? ' done' : ' pri');
   $('#lockmsg').classList.toggle('hide', !lk);
   const groups = [...new Set(list.map(x => x[0].split('-')[0]))].sort((x, y) => (sexOrder(x + '-')) - (sexOrder(y + '-')));
   $('#groups').innerHTML = groups.map(g => {
     const l = list.filter(x => x[0].split('-')[0] === g).sort(byCode);
-    return `<div class="g"><h3>${esc(g)}<small>${l.filter(x => !ab.has(x[0])).length} / ${l.length}명</small></h3><div class="grid">${l.map(([c, n]) => `<button class="pp${ab.has(c) ? ' off' : ''}" data-c="${esc(c)}" data-s="${esc(n)} ${esc(c)}"${lk ? ' disabled' : ''}><i>${ab.has(c) ? 'X' : 'O'}</i>${esc(n)}<em>${esc(c)}</em></button>`).join('')}</div></div>`;
+    return `<div class="g"><h3>${esc(g)}<small>${l.filter(x => pr.has(x[0])).length} / ${l.length}명</small></h3><div class="grid">${l.map(([c, n]) => `<button class="pp${pr.has(c) ? '' : ' off'}" data-c="${esc(c)}" data-s="${esc(n)} ${esc(c)}"${lk ? ' disabled' : ''}><i>${pr.has(c) ? 'O' : ''}</i>${esc(n)}<em>${esc(c)}</em></button>`).join('')}</div></div>`;
   }).join('');
   filter();
 }
 function filter() { document.querySelectorAll('.pp').forEach(b => b.classList.toggle('hide', !!q && !b.dataset.s.includes(q))); }
 
 /* ---------- 저장·받기 ---------- */
-function changed(k) { dirty.add(k); ver++; st('저장 대기…'); clearTimeout(timer); timer = setTimeout(push, 700); }
+function changed(k) { dirty.add(k); ver++; st('저장 대기…'); clearTimeout(timer); timer = setTimeout(push, 250); }
 async function push() {
   if (!dirty.size) return;
-  const v = ver, keys = [...dirty], mineA = Object.fromEntries(keys.map(k => [k, absent[k]])), mineD = Object.fromEntries(keys.map(k => [k, done[k]]));
+  const v = ver, keys = [...dirty], mineA = Object.fromEntries(keys.map(k => [k, present[k]])), mineD = Object.fromEntries(keys.map(k => [k, done[k]]));
   try {
     st('저장 중…');
     await ghWrite('attendance.json', c => {
-      const a = (c && c.absent) || {}, d = (c && c.done) || {};
+      const a = (c && c.present) || {}, d = (c && c.done) || {};
       keys.forEach(k => { if (mineA[k] && mineA[k].length) a[k] = mineA[k]; else delete a[k]; if (mineD[k]) d[k] = mineD[k]; else delete d[k]; });
-      return { ...(c || {}), saved: new Date().toISOString(), absent: a, done: d };   // locked(5층 추첨 시작 표시)는 그대로 둠
+      return { ...(c || {}), saved: new Date().toISOString(), present: a, done: d };   // locked(5층 추첨 시작 표시)는 그대로 둠
     }, '출석 체크 (6층)');
     if (ver === v) { dirty.clear(); st('저장됨 ' + fmtT(new Date())); } else { clearTimeout(timer); timer = setTimeout(push, 300); }
   } catch (e) { st(`저장 실패 (${e.message}) — 5초 뒤 다시 시도합니다`, true); clearTimeout(timer); timer = setTimeout(push, 5000); }
 }
+let pulling = false;
 async function pull() {
+  if (pulling) return; pulling = true;
   try {
     const d = await ghRead('attendance.json') || {};
     locked = d.locked || {};
-    for (const k of new Set([...Object.keys(d.absent || {}), ...Object.keys(absent), ...Object.keys(d.done || {}), ...Object.keys(done)])) {
+    for (const k of new Set([...Object.keys(d.present || {}), ...Object.keys(present), ...Object.keys(d.done || {}), ...Object.keys(done)])) {
       if (dirty.has(k)) continue;   // 이 폰에서 고치고 아직 못 올린 칸은 이 폰 것이 우선
-      if (d.absent && d.absent[k]) absent[k] = d.absent[k]; else delete absent[k];
+      if (d.present && d.present[k]) present[k] = d.present[k]; else delete present[k];
       if (d.done && d.done[k]) done[k] = d.done[k]; else delete done[k];
     }
     render();
     if (!dirty.size) st('연결됨 · ' + fmtT(new Date()) + ' 확인');
   } catch (e) { st(`불러오기 실패 (${e.message})`, true); }
+  finally { pulling = false; }
 }
 
 async function connect() {
@@ -201,14 +211,15 @@ $('#q').addEventListener('input', e => { q = e.target.value.trim(); filter(); })
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; cur = { sid: b.dataset.sid, a: +b.dataset.a }; q = ''; $('#q').value = ''; render(); scrollTo(0, 0); });
 $('#groups').addEventListener('click', e => {
   const b = e.target.closest('.pp'); if (!b || b.disabled) return;
-  const k = LK(cur.sid, cur.a), ab = new Set(absent[k] || []), c = b.dataset.c;
-  if (ab.has(c)) ab.delete(c); else ab.add(c);
-  absent[k] = listOf(cur.sid, cur.a).map(x => x[0]).filter(x => ab.has(x));
+  const k = LK(cur.sid, cur.a), pr = new Set(present[k] || []), c = b.dataset.c;
+  if (pr.has(c)) pr.delete(c); else pr.add(c);
+  present[k] = listOf(cur.sid, cur.a).map(x => x[0]).filter(x => pr.has(x));
   changed(k); render();
 });
 $('#done').onclick = () => { const k = LK(cur.sid, cur.a); if (done[k]) delete done[k]; else done[k] = new Date().toISOString(); changed(k); render(); };
 addEventListener('beforeunload', e => { if (dirty.size) e.preventDefault(); });
-setInterval(() => { if (roster && Object.keys(roster).length && !document.hidden) pull(); }, 10000);
+setInterval(() => { if (roster && Object.keys(roster).length && !document.hidden) pull(); }, 2000);   // 2초마다 (안 바뀌면 304라 부담 없음)
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Object.keys(roster).length) pull(); });
 connect();
 })();
 </script>

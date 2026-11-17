@@ -1189,9 +1189,9 @@ tr.cur .out{
 .pp{height:42px;min-width:0;padding:0 8px 0 6px;border-radius:7px;border:1px solid #C4CFDE;background:#fff;color:var(--ink-900);display:flex;align-items:center;gap:8px;font:700 18px/1 var(--sans);white-space:nowrap;overflow:hidden;text-align:left}
 .pp i{flex:none;width:28px;height:28px;border-radius:5px;background:#2563EB;color:#fff;display:grid;place-items:center;font:800 13px/1 var(--sans);font-style:normal}
 .pp em{font:600 14px/1 var(--sans);font-style:normal;color:var(--ink-500);font-variant-numeric:tabular-nums}
-.pp.off{background:#F3F5F9;border-style:dashed;color:#A6B0C0;text-decoration:line-through}
-.pp.off i{background:#fff;color:#D64545;border:1px solid #E3B4B4;text-decoration:none}
-.pp.off em{color:#B6BECC}
+.pp{background:#EEF4FF;border-color:#2563EB}   /* O = 참석 */
+.pp.off{background:#fff;border-color:#C4CFDE}   /* 빈칸 = 아직 체크 안 함 */
+.pp.off i{background:#fff;border:1.5px solid #B6C2D3}
 .pp:disabled{cursor:default;opacity:.75}
 /* 남 | 여 반반, 각 묶음 안은 세로로 1~10, 다음 열 11~20 */
 .sexes{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;align-items:start}
@@ -1359,8 +1359,8 @@ const save = () => {};
 addEventListener('beforeunload', e => { if (S.draws.length) e.preventDefault(); });   // 추첨 도중 실수로 닫기·새로고침 방지
 
 /* ======================= 명단·참석 체크 =======================
-   roster[회차][연령] = [[대기번호, 이름], ...]. 참석 체크를 시작하기 전에는 전원 참석으로 봅니다.
-   S.att['회차id:연령'] = 참석한 대기번호 배열 (안 온 사람만 빠진 상태로 저장) */
+   roster[회차][연령] = [[대기번호, 이름], ...]. 처음엔 아무도 체크 안 된 상태(빈칸)이고, 오신 분을 눌러 O로 표시합니다.
+   S.att['회차id:연령'] = 참석(O)한 대기번호 배열 */
 // 한 줄에 두 명(쌍둥이 등)이 적힌 항목은 한 명씩 나눠 각자 공을 가짐: '여-6' → '여-6-1', '여-6-2'
 const splitRoster = raw => Object.fromEntries(Object.entries(raw || {}).map(([sid, ages]) => [sid, Object.fromEntries(Object.entries(ages).map(([a, list]) =>
   [a, list.flatMap(([code, nm]) => { const p = nm.trim().split(/\s+/); return p.length > 1 ? p.map((x, i) => [code + '-' + (i + 1), x]) : [[code, nm]]; })]))]));
@@ -1369,7 +1369,7 @@ let ROSTER = splitRoster(CFG.roster);
 const REMOTE = !!CFG.rosterRemote, rosterReady = () => !REMOTE || Object.keys(ROSTER).length > 0;
 const LK = (si, a) => SES[si].id + ':' + a;   // 추첨 단위 = 날짜 × 연령 (연령마다 따로 진행)
 const rosterOf = (si, a) => (ROSTER[SES[si].id] || {})[a] || [];
-const presentCodes = (si, a) => { const t = S.att[SES[si].id + ':' + a]; return t ? t : rosterOf(si, a).map(x => x[0]); };
+const presentCodes = (si, a) => S.att[SES[si].id + ':' + a] || [];
 const nameOf = (sid, a, code) => { const si = SES.findIndex(x => x.id === sid); if (si < 0) return ''; const r = rosterOf(si, a).find(x => x[0] === code); return r ? r[1] : ''; };
 const fullNo = (a, code) => AG[a] + '-' + code;
 const regN = (si, a) => rosterOf(si, a).length || C(si, 'r', a);   // 명단(예약) 인원
@@ -1959,15 +1959,15 @@ function renderSetup() {
   const list = rosterOf(ci, a), pres = new Set(presentCodes(ci, a));
   // 남·여(·미기재)로 묶고, 묶음 안에서는 대기번호 순서대로
   const numOf = c => c.split('-').slice(1).map(Number), byNo = (x, y) => { const p = numOf(x[0]), q = numOf(y[0]); return p[0] - q[0] || (p[1] || 0) - (q[1] || 0); };
-  const chipOf = ([code, nm]) => { const on = pres.has(code); return `<button type="button" class="pp${on ? '' : ' off'}" data-att="${a}|${code}" data-attrow="${esc(nm)}" data-attcode="${esc(code)}"${locked ? ' disabled' : ''}><i>${on ? 'O' : 'X'}</i>${esc(nm)}<em>${esc(code)}</em></button>`; };
+  const chipOf = ([code, nm]) => { const on = pres.has(code); return `<button type="button" class="pp${on ? '' : ' off'}" data-att="${a}|${code}" data-attrow="${esc(nm)}" data-attcode="${esc(code)}"${locked ? ' disabled' : ''}><i>${on ? 'O' : ''}</i>${esc(nm)}<em>${esc(code)}</em></button>`; };
   const groups = [...new Set(list.map(x => x[0].split('-')[0]))].sort((x, y) => (['남', '여'].indexOf(x) + 1 || 9) - (['남', '여'].indexOf(y) + 1 || 9));
   const chips = groups.map(g => { const l = list.filter(x => x[0].split('-')[0] === g).sort(byNo); return `<div class="sexg"><div class="sex"><b>${esc(g)}</b><small>${l.filter(x => pres.has(x[0])).length} / ${l.length}명</small></div><div class="att-grid" style="grid-template-rows:repeat(${Math.min(10, l.length)},auto)">${l.map(chipOf).join('')}</div></div>`; }).join('');
   // 탭 = 날짜 × 연령 (연령마다 설명회·추첨을 따로 진행)
   const tabs = SES.flatMap((s, si) => AG.map((n, x) => regN(si, x) ? `<button type="button" class="tab${si === ci && x === a ? ' on' : ''}${si && x === AG.findIndex((_, y) => regN(si, y)) ? ' gap' : ''}" data-day="${si}" data-age="${x}">${esc(s.label)}<small><span class="dot a${x}"></span> ${esc(n)} · ${regN(si, x)}명${S.done[LK(si, x)] ? ' ✓' : ''}</small></button>` : '')).join('');
   $('#s-right').innerHTML = `
     <div class="tabs">${tabs}</div>
-    <div class="att-top"><b>① 참석 체크</b><span>안 온 분만 눌러서 <b style="font-size:inherit;color:#D64545">X</b>로 바꾸세요. O인 번호만 공에 들어갑니다${locked ? ' — 추첨이 시작되어 확정됨' : ''}.</span><input id="att-q" type="text" placeholder="이름 또는 번호 검색" value="${esc(attQ)}" autocomplete="off"><button type="button" class="b" data-act="print">출석부 인쇄</button></div>
-    ${list.length ? `<div class="att-g"><div class="att-h"><span class="dot a${a}"></span><b>${esc(AG[a])}</b><span class="sum">참석 ${pres.size} / ${list.length}명 · ${IT.map((it, k) => `${esc(it.name)} ${P[ci][a][k]}`).join(' · ')}</span><button type="button" class="b" data-attall="${a}"${locked ? ' disabled' : ''}>전원 참석으로</button><button type="button" class="b${S.done[LK(ci, a)] ? ' pri' : ''}" data-attdone="${a}">${S.done[LK(ci, a)] ? `출석 확인 완료 ✓ ${fmtT(S.done[LK(ci, a)])}` : '출석 확인 완료 누르기'}</button></div><div class="sexes">${chips}</div></div>` : `<div class="lg-none">${rosterReady() ? '이 날짜·연령에는 명단이 없습니다.' : '명단은 비공개 저장소에 있습니다 — 왼쪽 [웹 저장 (GitHub)]에 연결하면 나옵니다.'}</div>`}
+    <div class="att-top"><b>① 참석 체크</b><span>오신 분을 눌러서 <b style="font-size:inherit;color:#2563EB">O</b>로 표시하세요. O인 번호만 공에 들어갑니다${locked ? ' — 추첨이 시작되어 확정됨' : ''}.</span><input id="att-q" type="text" placeholder="이름 또는 번호 검색" value="${esc(attQ)}" autocomplete="off"><button type="button" class="b" data-act="print">출석부 인쇄</button></div>
+    ${list.length ? `<div class="att-g"><div class="att-h"><span class="dot a${a}"></span><b>${esc(AG[a])}</b><span class="sum">참석 ${pres.size} / ${list.length}명 · ${IT.map((it, k) => `${esc(it.name)} ${P[ci][a][k]}`).join(' · ')}</span><button type="button" class="b" data-attall="${a}"${locked ? ' disabled' : ''}>${pres.size === list.length ? '전원 지우기' : '전원 O'}</button><button type="button" class="b${S.done[LK(ci, a)] ? ' pri' : ''}" data-attdone="${a}">${S.done[LK(ci, a)] ? `출석 확인 완료 ✓ ${fmtT(S.done[LK(ci, a)])}` : '출석 확인 완료 누르기'}</button></div><div class="sexes">${chips}</div></div>` : `<div class="lg-none">${rosterReady() ? '이 날짜·연령에는 명단이 없습니다.' : '명단은 비공개 저장소에 있습니다 — 왼쪽 [웹 저장 (GitHub)]에 연결하면 나옵니다.'}</div>`}
     <div class="att-top" style="padding-top:20px"><b>② 추첨 기록</b></div>
     ${logs ? `<div class="logs">${logs}</div>` : '<div class="lg-none">아직 없습니다</div>'}`;
   applyAttFilter();
@@ -2027,6 +2027,7 @@ async function drawCore() {
   const ci = curIdx(), s = SES[ci], a = S.pool, key = LK(ci, a);
   if (!rosterReady()) { toast('명단을 아직 불러오지 못했습니다 — [준비]에서 웹 저장(GitHub)을 연결해 주세요'); return; }
   if (!regN(ci, a)) { toast('이 날짜·연령에는 명단이 없습니다'); return; }
+  if (!S.lock[key] && rosterOf(ci, a).length && !presentCodes(ci, a).length) { toast('참석(O) 표시된 분이 없습니다 — [준비]에서 오신 분을 O로 체크해 주세요'); return; }
   if (!Machine.ready()) { toast('공을 넣는 중입니다 — 잠시 후 다시 눌러 주세요'); return; }
   if (!S.lock[key]) {   // 이 연령 첫 추첨 — 이전 기록 이어받기 → 참석 체크 확정 (배정 개수는 화면에 띄우지 않음)
     if (!(await resumeFrom(ci, a))) return;
@@ -2127,14 +2128,14 @@ async function showDone() {
 /* ======================= 출석부 인쇄 (6층 프론트용 종이) ======================= */
 function printSheet() {
   const ci = curIdx(), s = SES[ci];
-  const sec = AG.map((n, a) => { const list = rosterOf(ci, a); if (!list.length) return ''; return `<section><h2>${esc(n)} <small>${list.length}명</small></h2><div class="g">${[...list].sort((x, y) => { const g = c => ['남', '여'].indexOf(c.split('-')[0]) + 1 || 9, n = c => c.split('-').slice(1).map(Number); return g(x[0]) - g(y[0]) || n(x[0])[0] - n(y[0])[0] || (n(x[0])[1] || 0) - (n(y[0])[1] || 0); }).map(([c, nm]) => `<div><i></i><b>${esc(nm)}</b><span>${esc(c)}</span></div>`).join('')}</div></section>`; }).join('');
+  const sec = AG.map((n, a) => { const list = rosterOf(ci, a); if (!list.length) return ''; const pr = new Set(presentCodes(ci, a)); return `<section><h2>${esc(n)} <small>${pr.size ? `참석 ${pr.size} / ` : ''}${list.length}명</small></h2><div class="g">${[...list].sort((x, y) => { const g = c => ['남', '여'].indexOf(c.split('-')[0]) + 1 || 9, n = c => c.split('-').slice(1).map(Number); return g(x[0]) - g(y[0]) || n(x[0])[0] - n(y[0])[0] || (n(x[0])[1] || 0) - (n(y[0])[1] || 0); }).map(([c, nm]) => `<div><i>${pr.has(c) ? '✓' : ''}</i><b>${esc(nm)}</b><span>${esc(c)}</span></div>`).join('')}</div></section>`; }).join('');
   const html = `<!doctype html><html lang="ko"><meta charset="utf-8"><title>출석부 ${esc(s.label)}</title><style>
     body{font-family:'Malgun Gothic',sans-serif;color:#000;margin:20px 26px;font-size:14px}
     h1{font-size:20px;margin:0}p{margin:6px 0 0;color:#333}h2{font-size:16px;margin:16px 0 4px;border-bottom:2px solid #000;padding-bottom:4px}h2 small{font-weight:400;font-size:13px}
     .g{display:grid;grid-template-columns:repeat(4,1fr);gap:0 14px}.g div{display:flex;align-items:center;gap:8px;height:29px;border-bottom:1px solid #bbb}
-    i{width:16px;height:16px;border:1.5px solid #000;flex:none}span{color:#555;font-size:12px;margin-left:auto}section{break-inside:avoid}
+    i{width:16px;height:16px;border:1.5px solid #000;flex:none;font:900 14px/14px sans-serif;font-style:normal;text-align:center}span{color:#555;font-size:12px;margin-left:auto}section{break-inside:avoid}
     </style><h1>${esc(CFG.campus)} 설명회 출석부 — ${esc(s.label)}</h1>
-    <p>오신 분 네모 칸에 ✓ 표시 → 설명회가 끝나기 전에 5층 진행자에게 전달해 주세요. (✓ 없는 분 = 불참, 추첨에서 제외)</p>${sec}<script>onload=()=>setTimeout(()=>print(),300)<\/script>`;
+    <p>${AG.some((_, a) => presentCodes(ci, a).length) ? `${fmtT(new Date())} 현재 참석 체크(O)가 ✓로 찍혀 있습니다. 더 오신 분은 ✓를 추가해 주세요. ` : ''}오신 분 네모 칸에 ✓ 표시 → 설명회가 끝나기 전에 5층 진행자에게 전달해 주세요. (✓ 없는 분 = 불참, 추첨에서 제외)</p>${sec}<script>onload=()=>setTimeout(()=>print(),300)<\/script>`;
   const w = window.open('', '_blank'); if (!w) { toast('팝업이 막혀 있습니다 — 브라우저에서 팝업을 허용해 주세요'); return; }
   w.document.open(); w.document.write(html); w.document.close();
 }
@@ -2154,7 +2155,7 @@ function exportCSV() {
 
 /* ======================= 웹 저장 (GitHub 비공개 저장소) =======================
    서버 없이 GitHub 저장소의 파일 두 종류만 씁니다.
-   · attendance.json        — 불참자 목록. 6층에서 체크하면 올라가고, 다른 PC는 10초마다 받아 옵니다.
+   · attendance.json        — 참석(O) 목록. 6층에서 체크하면 올라가고, 다른 기기는 2초마다 받아 옵니다.
    · result-날짜-연령.json  — 그 연령의 추첨 결과. 뽑을 때마다 덮어씁니다(기록 보관용, 다시 불러오지는 않음).
    저장소 주소와 토큰은 이 PC 브라우저에만 저장됩니다. */
 const NETKEY = 'voucher-lottery-github';
@@ -2165,15 +2166,18 @@ const netOn = () => !!(NET.ok && NET.repo && NET.token);
 function setNet(msg, cls = '') { netMsg = msg; netCls = cls; const el = $('#net-msg'); if (el) { el.textContent = msg; el.className = cls; } }
 const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 const b64d = b => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0)));
+// GET은 ETag 조건부 요청 — 안 바뀌었으면 304(요청 한도에 안 셈)라서 2초마다 확인해도 됨
+const etags = {};
 async function gh(path, body) {
-  const r = await fetch(`https://api.github.com/repos/${NET.repo}${path}`, {
-    method: body ? 'PUT' : 'GET', cache: 'no-store',
-    headers: { Authorization: 'Bearer ' + NET.token, Accept: 'application/vnd.github+json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const headers = { Authorization: 'Bearer ' + NET.token, Accept: 'application/vnd.github+json' }, c = !body && etags[path];
+  if (c) headers['If-None-Match'] = c.e;
+  const r = await fetch(`https://api.github.com/repos/${NET.repo}${path}`, { method: body ? 'PUT' : 'GET', cache: 'no-store', headers, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 304 && c) return c.j;
   if (r.status === 404 && !body) return null;
   if (!r.ok) throw new Error(r.status);
-  return r.json();
+  const j = await r.json(), e = r.headers.get('ETag');
+  if (!body && e) etags[path] = { e, j };
+  return j;
 }
 async function ghRead(file) { const j = await gh('/contents/' + file); return j ? JSON.parse(b64d(j.content)) : null; }
 // data가 함수면 저장소의 현재 내용을 받아 고친 값을 씀 — 두 PC가 동시에 써도 서로 지우지 않게
@@ -2185,50 +2189,53 @@ async function ghWrite(file, data, msg) {
     catch (e) { if (i > 2 || !/409|422/.test(e.message)) throw e; }
   }
 }
-// 출석: 불참자만 올림. 추첨이 시작된(확정된) 연령은 받아 온 값으로 바꾸지 않음
+// 출석: 참석(O) 목록을 올림. 추첨이 시작된(확정된) 연령은 받아 온 값으로 바꾸지 않음
 const rosterCodes = (si, a) => rosterOf(si, a).map(x => x[0]);
-function absentMap() {
+function presentMap() {
   const out = {};
-  SES.forEach((s, si) => AG.forEach((_, a) => { const p = new Set(presentCodes(si, a)), ab = rosterCodes(si, a).filter(c => !p.has(c)); if (ab.length) out[LK(si, a)] = ab; }));
+  SES.forEach((s, si) => AG.forEach((_, a) => { const p = presentCodes(si, a); if (p.length) out[LK(si, a)] = p; }));
   return out;
 }
 // 받아 온 출석·확인 완료를 반영 — 이 PC에서 고치고 아직 못 올린 칸, 추첨이 시작된 칸은 건드리지 않음
 function applyRemote(data) {
-  const map = data.absent || {}, dn = data.done || {}; let changed = false;
+  const map = data.present || {}, dn = data.done || {}; let changed = false;
   SES.forEach((s, si) => AG.forEach((_, a) => {
     const k = LK(si, a); if (dirtyKeys.has(k)) return;
     if ((dn[k] || '') !== (S.done[k] || '')) { changed = true; if (dn[k]) S.done[k] = dn[k]; else delete S.done[k]; }
     if (S.lock[k] || !rosterOf(si, a).length) return;
-    const ab = new Set(map[k] || []), next = rosterCodes(si, a).filter(c => !ab.has(c));
-    if (next.join() !== presentCodes(si, a).join()) { changed = true; if (ab.size) S.att[k] = next; else delete S.att[k]; }
+    const pr = new Set(map[k] || []), next = rosterCodes(si, a).filter(c => pr.has(c));
+    if (next.join() !== presentCodes(si, a).join()) { changed = true; if (next.length) S.att[k] = next; else delete S.att[k]; }
   }));
   return changed;
 }
 let attVer = 0; const dirtyKeys = new Set();
-function attChanged(k) { if (!netOn()) return; dirtyKeys.add(k); attDirty = true; attVer++; clearTimeout(attTimer); attTimer = setTimeout(pushAtt, 1200); }
+function attChanged(k) { if (!netOn()) return; dirtyKeys.add(k); attDirty = true; attVer++; clearTimeout(attTimer); attTimer = setTimeout(pushAtt, 250); }
 async function pushAtt() {
   if (!netOn() || !dirtyKeys.size) return;
-  const v = attVer, keys = [...dirtyKeys], mine = absentMap();
+  const v = attVer, keys = [...dirtyKeys], mine = presentMap();
   try {
     setNet('출석 저장 중…');
     await ghWrite('attendance.json', cur => {
-      const ab = (cur && cur.absent) || {}, dn = (cur && cur.done) || {};
+      const pr = (cur && cur.present) || {}, dn = (cur && cur.done) || {};
       const lk = (cur && cur.locked) || {};
-      keys.forEach(k => { if (mine[k]) ab[k] = mine[k]; else delete ab[k]; if (S.done[k]) dn[k] = S.done[k]; else delete dn[k]; if (S.lock[k]) lk[k] = lk[k] || new Date().toISOString(); else delete lk[k]; });
-      return { saved: new Date().toISOString(), absent: ab, done: dn, locked: lk };
+      keys.forEach(k => { if (mine[k]) pr[k] = mine[k]; else delete pr[k]; if (S.done[k]) dn[k] = S.done[k]; else delete dn[k]; if (S.lock[k]) lk[k] = lk[k] || new Date().toISOString(); else delete lk[k]; });
+      return { saved: new Date().toISOString(), present: pr, done: dn, locked: lk };
     }, '출석 체크');
     if (attVer === v) { dirtyKeys.clear(); attDirty = false; setNet('출석 저장됨 ' + fmtT(new Date()), 'good'); }
     else { clearTimeout(attTimer); attTimer = setTimeout(pushAtt, 300); }   // 저장하는 사이 또 고쳤으면 한 번 더
   } catch (e) { setNet(`출석 저장 실패 (${e.message}) — 5초 뒤 다시 시도`, 'bad'); clearTimeout(attTimer); attTimer = setTimeout(pushAtt, 5000); }
 }
+let pulling = false;
 async function pullAtt() {
-  if (!netOn() || busy || modalOpen()) return;
+  if (!netOn() || busy || modalOpen() || pulling) return;
+  pulling = true;
   try {
     const data = await ghRead('attendance.json');
     if (busy || modalOpen()) return;   // 받는 사이에 추첨이 시작됐으면 반영하지 않음
     if (data && applyRemote(data)) { if (S.view === 'setup') keepScroll(); else renderAll(); }
     if (!attDirty) setNet('연결됨 · 출석 확인 ' + fmtT(new Date()), 'good');
   } catch (e) { setNet(`출석 불러오기 실패 (${e.message})`, 'bad'); }
+  finally { pulling = false; }
 }
 const RUN = Date.now().toString(36);   // 이번에 파일을 연 회차 — 새로고침 전 기록과 구분
 const resFile = (sid, a) => `result-${sid.replace(/\D/g, '')}-${parseInt(AG[a], 10)}.json`;
@@ -2288,15 +2295,16 @@ function copyCheckLink() {
   (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('6층 출석 링크를 복사했습니다 — 토큰이 들어 있으니 프론트 담당자에게만 보내세요'), () => prompt('6층 출석 링크 (복사해서 보내세요)', url));
 }
 function netOff() { NET = {}; try { localStorage.removeItem(NETKEY); } catch (e) {} clearTimeout(attTimer); attDirty = false; setNet(''); renderAll(); }
-setInterval(() => { pullAtt(); resRetry.forEach(x => { const [sid, a] = x.split('|'); pushResult(sid, +a); }); }, 10000);
+setInterval(() => { if (!document.hidden) pullAtt(); }, 2000);   // 6층 체크가 2초 안에 보이게
+setInterval(() => resRetry.forEach(x => { const [sid, a] = x.split('|'); pushResult(sid, +a); }), 10000);
 
 /* ======================= 날짜·연령 하나만 초기화 ======================= */
 const unitName = () => `${SES[curIdx()].label.replace(/(\d+)월 (\d+)일/, '$1/$2')} ${AG[S.pool]}`;
 async function resetUnit() {
   if (busy || autoAll || modalOpen()) return;
   const ci = curIdx(), a = S.pool, k = LK(ci, a), sid = SES[ci].id, mine = d => d.sid === sid && d.age === a;
-  const n = S.draws.filter(mine).length, x = rosterOf(ci, a).length - presentCodes(ci, a).length;
-  if (!(await confirmBox(`${unitName()} 초기화할까요?`, `${SES[ci].label} · ${AG[a]}만 처음 상태로 돌립니다.\n· 당첨 기록 ${n}건 삭제\n· 참석 체크 X ${x}명 → 전원 O\n· 출석 확인 완료 표시 해제\n다른 날짜·연령은 그대로입니다. 되돌릴 수 없습니다.`, '초기화'))) return;
+  const n = S.draws.filter(mine).length, x = presentCodes(ci, a).length;
+  if (!(await confirmBox(`${unitName()} 초기화할까요?`, `${SES[ci].label} · ${AG[a]}만 처음 상태로 돌립니다.\n· 당첨 기록 ${n}건 삭제\n· 참석 체크 O ${x}명 → 전부 빈칸\n· 출석 확인 완료 표시 해제\n다른 날짜·연령은 그대로입니다. 되돌릴 수 없습니다.`, '초기화'))) return;
   S.draws = S.draws.filter(d => !mine(d)); delete S.lock[k]; delete S.att[k]; delete S.done[k]; S.noResume[k] = true;
   if (netOn()) { attChanged(k); saveRes(); }
   Machine.reset(ballsOf(a)); keepScroll(); toast(`${unitName()} 초기화했습니다`);
@@ -2357,7 +2365,7 @@ $('#v-setup').addEventListener('click', async e => {
     S.att[SES[ci].id + ':' + a] = rosterOf(ci, +a).map(x => x[0]).filter(c => cur.has(c));
     attChanged(LK(ci, +a)); keepScroll(); return;
   }
-  if (t.dataset.attall !== undefined) { const k = LK(curIdx(), +t.dataset.attall); delete S.att[k]; attChanged(k); keepScroll(); return; }
+  if (t.dataset.attall !== undefined) { const ci = curIdx(), a = +t.dataset.attall, k = LK(ci, a); if (presentCodes(ci, a).length === rosterOf(ci, a).length) delete S.att[k]; else S.att[k] = rosterCodes(ci, a); attChanged(k); keepScroll(); return; }
   if (t.dataset.attdone !== undefined) { const k = LK(curIdx(), +t.dataset.attdone); if (S.done[k]) delete S.done[k]; else S.done[k] = new Date().toISOString(); attChanged(k); keepScroll(); return; }
   if (t.dataset.void) {
     const d = S.draws.find(x => x.id === t.dataset.void);
