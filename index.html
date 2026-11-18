@@ -1328,7 +1328,7 @@ window.VOUCHER_CONFIG = {
   // 회차별 예약 인원 [5세, 6세, 7세] — 2026-11-16 참여확인 명단(127명) 기준 · 취소 1명 반영. 명단이 바뀌면 이 숫자만 고치면 됩니다.
   dataRepo: 'ColinPark-87/voucher-draw-data',   // 출석·결과·명단을 두는 비공개 저장소
   checkUrl: 'https://colinpark-87.github.io/voucher-draw/check.html',   // 6층 프론트용 출석 페이지
-  counts: { s1118: [40, 9, 0], s1120: [0, 24, 11], s1123: [16, 11, 16] },
+  counts: { s1118: [37, 8, 0], s1120: [0, 25, 11], s1123: [19, 11, 16] },
   // 참여확인 명단 전체 (2026-11-16 기준 127명) — roster[회차id][연령idx] = [[대기번호, 이름], ...]
   // 대기번호는 연령·성별 그룹 내 신청순 번호 (예: '남-1'). 공에는 이 번호가 그대로 들어갑니다.
   roster: {}, rosterRemote: true,   // 명단은 비공개 저장소의 roster.json
@@ -1423,16 +1423,17 @@ function apportion(total, w, cap) {
 //  · 같은 연령 안에서는 회차별 인원 비례로 배분
 //  · 기록을 저장하지 않으므로 배정은 명단 인원만으로 정해짐 → 어느 날 열어도 같은 배정표
 //  · 오늘은 참석 인원 ÷ 품목 수까지만 (1인 1바우처)
+let RFIX = {};   // 다른 날 이미 추첨한 칸의 배정 (저장소 attendance.json의 locked[k].alloc)
 function plan() {
   const ci = curIdx(), res = SES.map(() => AG.map(() => IT.map(() => 0)));
   IT.forEach((_, k) => {
     const perAge = apportion(S.qty[k], AG.map(() => 1));   // 연령별 균등 몫
     AG.forEach((_, a) => {
-      const out = apportion(perAge[a], SES.map((_, si) => regN(si, a)));
-      SES.forEach((s, si) => {
-        const L = S.lock[LK(si, a)];
-        res[si][a][k] = L ? L.alloc[k] : out[si];
-      });
+      // 이미 추첨한 날짜·연령은 그때 배정 그대로, 남은 개수만 다른 날짜에 인원 비례 (명단이 나중에 바뀌어도 총량 유지)
+      const fx = SES.map((_, si) => { const k2 = LK(si, a); return S.lock[k2] ? S.lock[k2].alloc : RFIX[k2]; });
+      const left = Math.max(0, perAge[a] - fx.reduce((t, f) => t + (f ? f[k] : 0), 0));
+      const out = apportion(left, SES.map((_, si) => fx[si] ? 0 : regN(si, a)));
+      SES.forEach((s, si) => { res[si][a][k] = fx[si] ? fx[si][k] : out[si]; });
     });
   });
   // 오늘(아직 시작 전) 연령은 바우처 합계가 참석 인원을 넘지 않게 — 많은 품목부터, 같으면 뒤 품목부터 하나씩 줄임 (1인 1바우처)
@@ -2199,6 +2200,8 @@ function presentMap() {
 // 받아 온 출석·확인 완료를 반영 — 이 PC에서 고치고 아직 못 올린 칸, 추첨이 시작된 칸은 건드리지 않음
 function applyRemote(data) {
   const map = data.present || {}, dn = data.done || {}; let changed = false;
+  const rf = Object.fromEntries(Object.entries(data.locked || {}).filter(([, v]) => v && v.alloc).map(([k, v]) => [k, v.alloc]));
+  if (JSON.stringify(rf) !== JSON.stringify(RFIX)) { RFIX = rf; changed = true; }
   SES.forEach((s, si) => AG.forEach((_, a) => {
     const k = LK(si, a); if (dirtyKeys.has(k)) return;
     if ((dn[k] || '') !== (S.done[k] || '')) { changed = true; if (dn[k]) S.done[k] = dn[k]; else delete S.done[k]; }
@@ -2218,7 +2221,7 @@ async function pushAtt() {
     await ghWrite('attendance.json', cur => {
       const pr = (cur && cur.present) || {}, dn = (cur && cur.done) || {};
       const lk = (cur && cur.locked) || {};
-      keys.forEach(k => { if (mine[k]) pr[k] = mine[k]; else delete pr[k]; if (S.done[k]) dn[k] = S.done[k]; else delete dn[k]; if (S.lock[k]) lk[k] = lk[k] || new Date().toISOString(); else delete lk[k]; });
+      keys.forEach(k => { if (mine[k]) pr[k] = mine[k]; else delete pr[k]; if (S.done[k]) dn[k] = S.done[k]; else delete dn[k]; if (S.lock[k]) lk[k] = lk[k] && lk[k].alloc ? lk[k] : { t: new Date().toISOString(), alloc: S.lock[k].alloc }; else delete lk[k]; });
       return { saved: new Date().toISOString(), present: pr, done: dn, locked: lk };
     }, '출석 체크');
     if (attVer === v) { dirtyKeys.clear(); attDirty = false; setNet('출석 저장됨 ' + fmtT(new Date()), 'good'); }
