@@ -1423,6 +1423,7 @@ function apportion(total, w, cap) {
 //  · 같은 연령 안에서는 회차별 인원 비례로 배분
 //  · 기록을 저장하지 않으므로 배정은 명단 인원만으로 정해짐 → 어느 날 열어도 같은 배정표
 //  · 오늘은 참석 인원 ÷ 품목 수까지만 (1인 1바우처)
+const RATE = { 's1123:0': 0.32, 's1123:1': 0.32 };
 let RFIX = {};   // 다른 날 이미 추첨한 칸의 배정 (저장소 attendance.json의 locked[k].alloc)
 function plan() {
   const ci = curIdx(), res = SES.map(() => AG.map(() => IT.map(() => 0)));
@@ -1435,6 +1436,12 @@ function plan() {
       const out = apportion(left, SES.map((_, si) => fx[si] ? 0 : regN(si, a)));
       SES.forEach((s, si) => { res[si][a][k] = fx[si] ? fx[si][k] : out[si]; });
     });
+  });
+  // 11/23 5·6세: 연령별 균등 대신 참석 인원의 32% (앞서 5·6세 당첨 비율과 맞춤, 재고 15개 초과 허용 — 운영 결정)
+  Object.entries(RATE).forEach(([key, r]) => {
+    const [sid, a] = key.split(':'), si = SES.findIndex(s => s.id === sid);
+    if (si < 0 || S.lock[key] || RFIX[key]) return;
+    res[si][+a] = apportion(Math.round(r * cnt(si, +a)), IT.map(() => 1));
   });
   // 오늘(아직 시작 전) 연령은 바우처 합계가 참석 인원을 넘지 않게 — 많은 품목부터, 같으면 뒤 품목부터 하나씩 줄임 (1인 1바우처)
   AG.forEach((_, a) => { if (S.lock[LK(ci, a)]) return; const r = res[ci][a], n = cnt(ci, a); while (sum(r) > n) r[r.lastIndexOf(Math.max(...r))]--; });
