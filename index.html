@@ -1933,7 +1933,8 @@ function renderDraw() {
   $('#d-pools').innerHTML = SES.flatMap((s, si) => AG.map((n, x) => regN(si, x) ? `<button type="button" class="dtab${si === ci && x === a ? ' on' : ''}" data-day="${si}" data-age="${x}"><span>${esc(s.label.replace(/(\d+)월 (\d+)일/, '$1/$2'))}</span><b><span class="dot a${x}"></span>${esc(n)}</b></button>` : '')).join('');
   setBoards($('#d-boards'));
   go.disabled = k < 0 || !ballsOf(a).length;
-  go.innerHTML = !has ? '명단이 없습니다' : k < 0 ? `${esc(AG[a])} 추첨이 끝났습니다` : go.disabled ? '추첨할 참석자가 없습니다' : `${esc(AG[a])} ${esc(IT[k].name)} 추첨하기<small>Space</small>`;
+  const noAtt = has && !S.lock[LK(ci, a)] && rosterOf(ci, a).length && !presentCodes(ci, a).length;   // 참석 체크 전이면 배정 0개라 '끝났습니다'로 보이던 문제
+  go.innerHTML = !has ? '명단이 없습니다' : noAtt ? '참석(O) 체크를 먼저 해 주세요' : k < 0 ? `${esc(AG[a])} 추첨이 끝났습니다` : go.disabled ? '추첨할 참석자가 없습니다' : `${esc(AG[a])} ${esc(IT[k].name)} 추첨하기<small>Space</small>`;
   $('#gohint').textContent = '';
 }
 
